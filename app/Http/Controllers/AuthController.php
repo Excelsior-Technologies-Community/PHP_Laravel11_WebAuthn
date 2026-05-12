@@ -4,18 +4,22 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\LoginActivity;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Jenssegers\Agent\Agent;
 
 class AuthController extends Controller
 {
-    // Show registration form
-    public function register() {
+    // ================= REGISTER PAGE =================
+    public function register()
+    {
         return view('register');
     }
 
-    // Handle registration
-    public function store(Request $request) {
+    // ================= REGISTER USER + ACTIVITY =================
+    public function store(Request $request)
+    {
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -23,30 +27,90 @@ class AuthController extends Controller
         ]);
 
         Auth::login($user);
+
+        $agent = new Agent();
+
+        // SAVE REGISTER ACTIVITY
+        LoginActivity::create([
+            'user_id' => $user->id,
+            'ip_address' => $request->ip() . ' (' . request()->getHost() . ')',
+            'browser' => $agent->browser() . ' - ' . $agent->platform(),
+            'login_method' => 'Register'
+        ]);
+
         return redirect('/dashboard');
     }
 
-    // Show login form
-    public function login() {
+    // ================= LOGIN PAGE =================
+    public function login()
+    {
         return view('login');
     }
 
-    // Handle login
-    public function authenticate(Request $request) {
-        if (Auth::attempt($request->only('email','password'))) {
+    // ================= LOGIN USER + ACTIVITY =================
+    public function authenticate(Request $request)
+    {
+        if (Auth::attempt($request->only('email', 'password'))) {
+
+            $user = Auth::user();
+
+            $agent = new Agent();
+
+            // SAVE LOGIN ACTIVITY
+            LoginActivity::create([
+                'user_id' => $user->id,
+                'ip_address' => $request->ip() . ' (' . request()->getHost() . ')',
+                'browser' => $agent->browser() . ' - ' . $agent->platform(),
+                'login_method' => 'Password'
+            ]);
+
             return redirect('/dashboard');
         }
-        return back()->with('error','Invalid login');
+
+        return back()->with('error', 'Invalid login');
     }
 
-    // Dashboard view
-    public function dashboard() {
-        return view('dashboard');
+    // ================= DASHBOARD =================
+    public function dashboard()
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return redirect('/login');
+        }
+
+        return view('dashboard', [
+            'credentials' => $user->webauthnCredentials ?? collect(),
+
+            'activities' => LoginActivity::where('user_id', $user->id)
+                ->latest()
+                ->take(10)
+                ->get()
+        ]);
     }
 
-    // Logout
-    public function logout() {
+    // ================= LOGOUT =================
+    public function logout()
+    {
         Auth::logout();
+
         return redirect('/login');
+    }
+
+    // ================= DELETE PASSKEY =================
+    public function deletePasskey($id)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return redirect('/login');
+        }
+
+        $credential = $user->webauthnCredentials()
+            ->findOrFail($id);
+
+        $credential->delete();
+
+        return back()->with('success', 'Passkey deleted successfully');
     }
 }
