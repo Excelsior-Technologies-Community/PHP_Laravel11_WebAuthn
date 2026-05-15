@@ -1,4 +1,5 @@
 <?php
+// app/Models/LoginActivity.php
 
 namespace App\Models;
 
@@ -10,6 +11,20 @@ class LoginActivity extends Model
         'user_id',
         'ip_address',
         'browser',
-        'login_method'
+        'login_method',
+        'country',
+        'city',
+        'device_type',
+        'device_name',
+        'is_trusted'
     ];
+
+    protected $casts = [
+        'is_trusted' => 'boolean'
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }
