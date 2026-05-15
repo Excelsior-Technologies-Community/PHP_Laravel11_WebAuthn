@@ -1,4 +1,3 @@
-<!-- resources/views/passkey-login.blade.php -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -42,7 +41,6 @@
             transition: transform 0.3s;
         }
         .passkey-btn:hover { transform: translateY(-2px); }
-        .passkey-btn:disabled { opacity: 0.5; transform: none; }
         .email-input {
             width: 100%;
             padding: 14px;
@@ -65,25 +63,31 @@
             border-bottom: 1px solid rgba(255,255,255,0.2);
         }
         .divider span { margin: 0 15px; }
-        .password-link { color: #8ab6d6; text-decoration: none; }
+        .password-link {
+            color: #8ab6d6;
+            text-decoration: none;
+        }
         .password-link:hover { color: #e43f5a; }
-        .back-link { display: block; margin-top: 20px; color: #6c757d; text-decoration: none; }
-        .error { color: #ff5c78; margin-bottom: 15px; }
+        .back-link {
+            display: block;
+            margin-top: 20px;
+            color: #6c757d;
+        }
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>🔑 Passkey Login</h1>
+        <h1> Passkey Login</h1>
         
-        @if(session('error'))
-            <p class="error">{{ session('error') }}</p>
-        @endif
+        <input type="email" id="email" class="email-input" placeholder="Your email address" value="{{ old('email', $email ?? '') }}">
         
-        <input type="email" id="email" class="email-input" placeholder="Your email address" value="{{ old('email', session('email')) }}">
+        <button id="passkey-login-btn" class="passkey-btn">
+             Login with Passkey
+        </button>
         
-        <button id="passkey-login-btn" class="passkey-btn">🔐 Login with Passkey</button>
-        
-        <div class="divider"><span>OR</span></div>
+        <div class="divider">
+            <span>OR</span>
+        </div>
         
         <a href="/login" class="password-link">Login with Password →</a>
         <a href="/register" class="back-link">Don't have an account? Register</a>
@@ -103,19 +107,14 @@
                 .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
         }
         
-        const loginBtn = document.getElementById('passkey-login-btn');
-        
-        loginBtn.addEventListener('click', async () => {
+        document.getElementById('passkey-login-btn').addEventListener('click', async () => {
             const email = document.getElementById('email').value;
-            if (!email) {
-                alert('Please enter your email address');
-                return;
-            }
-            
-            loginBtn.disabled = true;
-            loginBtn.textContent = '⌛ Verifying...';
+            const button = document.getElementById('passkey-login-btn');
+            button.disabled = true;
+            button.textContent = ' Verifying...';
             
             try {
+                // Get assertion options
                 const optionsResponse = await fetch('/webauthn/login/options', {
                     method: 'POST',
                     headers: {
@@ -165,14 +164,14 @@
                     window.location.href = '/dashboard';
                 } else {
                     alert('Login failed. Please try again.');
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = '🔐 Login with Passkey';
+                    button.disabled = false;
+                    button.textContent = ' Login with Passkey';
                 }
             } catch (error) {
                 console.error(error);
                 alert(error.message || 'Passkey authentication failed');
-                loginBtn.disabled = false;
-                loginBtn.textContent = '🔐 Login with Passkey';
+                button.disabled = false;
+                button.textContent = ' Login with Passkey';
             }
         });
     </script>
