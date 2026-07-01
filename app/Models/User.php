@@ -1,5 +1,4 @@
 <?php
-// app/Models/User.php
 
 namespace App\Models;
 
@@ -56,12 +55,12 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     public function getSecurityScore()
     {
         $score = 0;
-        
+
         if ($this->webauthnCredentials()->count() > 0) $score += 40;
-        if (strlen($this->password) > 10) $score += 20;
-        if ($this->email_verified) $score += 20;
-        if ($this->webauthn_required) $score += 20;
-        
+        if ($this->webauthn_required) $score += 30;
+        if ($this->trustedDevices()->count() > 0) $score += 20;
+        if ($this->email_verified) $score += 10;
+
         return min($score, 100);
     }
 }

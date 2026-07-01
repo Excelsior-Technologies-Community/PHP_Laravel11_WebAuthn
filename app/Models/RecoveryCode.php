@@ -1,5 +1,4 @@
 <?php
-// app/Models/RecoveryCode.php
 
 namespace App\Models;
 
@@ -20,5 +19,10 @@ class RecoveryCode extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function scopeUnused($query)
+    {
+        return $query->where('used', false);
     }
 }
