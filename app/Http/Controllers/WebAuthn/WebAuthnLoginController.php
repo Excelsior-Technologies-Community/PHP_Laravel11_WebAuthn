@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/WebAuthn/WebAuthnLoginController.php
 
 namespace App\Http\Controllers\WebAuthn;
 
@@ -8,7 +7,8 @@ use Illuminate\Http\Response;
 use Laragear\WebAuthn\Http\Requests\AssertedRequest;
 use Laragear\WebAuthn\Http\Requests\AssertionRequest;
 use App\Models\LoginActivity;
-use App\Models\User;
+use App\Models\TrustedDevice;
+use App\Notifications\NewDeviceLoginNotification;
 use Jenssegers\Agent\Agent;
 
 class WebAuthnLoginController
@@ -24,21 +24,25 @@ class WebAuthnLoginController
         
         if ($success) {
             $user = $request->user();
-            
-            // Update last passkey login
-            $user->last_passkey_login = now();
-            $user->save();
-            
-            // Log the activity
             $agent = new Agent();
-            LoginActivity::create([
+            $ip = $request->ip();
+            
+            $user->update(['last_passkey_login' => now()]);
+            
+            $activity = LoginActivity::create([
                 'user_id' => $user->id,
-                'ip_address' => $request->ip(),
+                'ip_address' => $ip,
                 'browser' => $agent->browser() . ' - ' . $agent->platform(),
                 'login_method' => 'Passkey',
                 'device_type' => $agent->device(),
                 'device_name' => $agent->device() ?: 'Unknown'
             ]);
+            
+            $identifier = hash('sha256', $request->userAgent() . $ip);
+            
+            if (!TrustedDevice::where('user_id', $user->id)->where('device_identifier', $identifier)->exists()) {
+                $user->notify(new NewDeviceLoginNotification($activity));
+            }
             
             return response()->noContent(204);
         }

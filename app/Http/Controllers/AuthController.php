@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/AuthController.php
 
 namespace App\Http\Controllers;
 
@@ -8,9 +7,9 @@ use App\Models\User;
 use App\Models\LoginActivity;
 use App\Models\RecoveryCode;
 use App\Models\TrustedDevice;
+use App\Notifications\NewDeviceLoginNotification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Jenssegers\Agent\Agent;
 use Illuminate\Support\Str;
 
@@ -36,12 +35,7 @@ class AuthController extends Controller
         ]);
 
         Auth::login($user);
-
-        $agent = new Agent();
-
         $this->logActivity($user, 'Register', $request);
-
-        // Generate recovery codes
         $this->generateRecoveryCodes($user);
 
         return redirect('/dashboard');
@@ -67,7 +61,6 @@ class AuthController extends Controller
         if (Auth::attempt($request->only('email', 'password'))) {
             $user = Auth::user();
 
-            // Check if passkey is required
             if ($user->webauthn_required && $user->webauthnCredentials()->count() > 0) {
                 Auth::logout();
                 return redirect('/passkey-login')->with('email', $request->email)
@@ -85,32 +78,13 @@ class AuthController extends Controller
     public function dashboard()
     {
         $user = auth()->user();
-
-        if (!$user) {
-            return redirect('/login');
-        }
+        if (!$user) return redirect('/login');
 
         $credentials = $user->webauthnCredentials()->get();
-        
-        // Add device info to credentials if available
-        foreach ($credentials as $cred) {
-            if (!$cred->device_name) {
-                $cred->device_name = $cred->aaguid ? 'Authenticator Device' : 'Passkey Device';
-            }
-        }
-
-        $activities = LoginActivity::where('user_id', $user->id)
-            ->latest()
-            ->take(20)
-            ->get();
-
+        $activities = LoginActivity::where('user_id', $user->id)->latest()->take(20)->get();
         $trustedDevices = TrustedDevice::where('user_id', $user->id)->get();
-        
         $securityScore = $user->getSecurityScore();
-        
-        $recoveryCodes = RecoveryCode::where('user_id', $user->id)
-            ->where('used', false)
-            ->get();
+        $recoveryCodes = RecoveryCode::where('user_id', $user->id)->where('used', false)->get();
 
         return view('dashboard', compact('credentials', 'activities', 'trustedDevices', 'securityScore', 'recoveryCodes'));
     }
@@ -124,14 +98,7 @@ class AuthController extends Controller
     public function deletePasskey($id)
     {
         $user = Auth::user();
-
-        if (!$user) {
-            return redirect('/login');
-        }
-
-        $credential = $user->webauthnCredentials()->findOrFail($id);
-        $credential->delete();
-
+        $user->webauthnCredentials()->findOrFail($id)->delete();
         return back()->with('success', 'Passkey deleted successfully');
     }
 
@@ -140,7 +107,6 @@ class AuthController extends Controller
         $user = Auth::user();
         $user->webauthn_required = $request->enabled;
         $user->save();
-
         return response()->json(['success' => true]);
     }
 
@@ -167,57 +133,74 @@ class AuthController extends Controller
     public function generateNewRecoveryCodes()
     {
         $user = Auth::user();
-        
-        // Delete old codes
         RecoveryCode::where('user_id', $user->id)->delete();
-        
-        // Generate new codes
         $this->generateRecoveryCodes($user);
         
-        $codes = RecoveryCode::where('user_id', $user->id)
-            ->where('used', false)
-            ->get()
-            ->pluck('code')
-            ->toArray();
-
+        $codes = RecoveryCode::where('user_id', $user->id)->where('used', false)->pluck('code')->toArray();
         return response()->json(['codes' => $codes]);
     }
 
-    public function verifyRecoveryCode(Request $request)
-    {
-        $request->validate([
-            'code' => 'required|string'
-        ]);
+  public function verifyRecoveryCode(Request $request)
+{
+    $request->validate([
+        'code' => 'required|string',
+        'email' => 'required|email'
+    ]);
 
-        $user = Auth::user();
-        
-        $recoveryCode = RecoveryCode::where('user_id', $user->id)
-            ->where('code', $request->code)
-            ->where('used', false)
-            ->first();
+    $email = strtolower(trim($request->email));
+    $code = strtoupper(trim($request->code));
 
-        if ($recoveryCode) {
-            $recoveryCode->used = true;
-            $recoveryCode->save();
-            
-            // Disable passkey requirement temporarily
-            $user->webauthn_required = false;
-            $user->save();
-            
-            return response()->json(['success' => true, 'message' => 'Recovery code verified. Please setup new passkey.']);
-        }
+    $user = User::where('email', $email)->first();
 
-        return response()->json(['success' => false, 'message' => 'Invalid recovery code'], 422);
+    if (!$user) {
+        return response()->json(['success' => false, 'message' => 'User not found'], 404);
     }
 
+    $recoveryCode = RecoveryCode::where('user_id', $user->id)
+        ->where('code', $code)
+        ->where('used', false)
+        ->first();
+
+    if (!$recoveryCode) {
+        return response()->json(['success' => false, 'message' => 'Invalid code'], 422);
+    }
+
+    $recoveryCode->update(['used' => true, 'used_at' => now()]);
+    $user->update(['webauthn_required' => false]);
+
+    Auth::login($user, true);
+    $request->session()->regenerate();
+
+    return response()->json(['success' => true]);
+}
+public function updateProfile(Request $request)
+{
+    $user = Auth::user();
+
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email,' . $user->id,
+        'password' => 'nullable|min:8'
+    ]);
+
+    $user->name = $request->name;
+    $user->email = $request->email;
+
+    if ($request->filled('password')) {
+        $user->password = Hash::make($request->password);
+    }
+
+    $user->save();
+
+    return response()->json(['success' => true]);
+}
     private function logActivity($user, $method, $request)
     {
         $agent = new Agent();
-        
-        // Get location (you can use a free IP geolocation API)
         $location = $this->getLocationFromIP($request->ip());
+        $isTrusted = $this->isTrustedDevice($user, $request);
         
-        LoginActivity::create([
+        $activity = LoginActivity::create([
             'user_id' => $user->id,
             'ip_address' => $request->ip(),
             'browser' => $agent->browser() . ' - ' . $agent->platform(),
@@ -226,37 +209,32 @@ class AuthController extends Controller
             'device_name' => $agent->device() ?: 'Unknown',
             'country' => $location['country'] ?? null,
             'city' => $location['city'] ?? null,
-            'is_trusted' => $this->isTrustedDevice($user, $request)
+            'is_trusted' => $isTrusted
         ]);
+
+        if (!$isTrusted) {
+            $user->notify(new NewDeviceLoginNotification($activity));
+        }
     }
 
     private function getLocationFromIP($ip)
     {
-        // Simple fallback - you can integrate with a free API like ip-api.com
         try {
             $response = @file_get_contents("http://ip-api.com/json/{$ip}");
             if ($response) {
                 $data = json_decode($response, true);
                 if ($data && $data['status'] === 'success') {
-                    return [
-                        'country' => $data['country'],
-                        'city' => $data['city']
-                    ];
+                    return ['country' => $data['country'], 'city' => $data['city']];
                 }
             }
-        } catch (\Exception $e) {
-            // Ignore location errors
-        }
-        
+        } catch (\Exception $e) {}
         return ['country' => null, 'city' => null];
     }
 
     private function isTrustedDevice($user, $request)
     {
         $identifier = hash('sha256', $request->userAgent() . $request->ip());
-        return TrustedDevice::where('user_id', $user->id)
-            ->where('device_identifier', $identifier)
-            ->exists();
+        return TrustedDevice::where('user_id', $user->id)->where('device_identifier', $identifier)->exists();
     }
 
     private function generateRecoveryCodes($user)
@@ -265,12 +243,11 @@ class AuthController extends Controller
         for ($i = 0; $i < 8; $i++) {
             $codes[] = [
                 'user_id' => $user->id,
-                'code' => Str::upper(Str::random(8) . '-' . Str::random(4)),
+                'code' => Str::upper(Str::random(4) . '-' . Str::random(4)),
                 'created_at' => now(),
                 'updated_at' => now()
             ];
         }
-        
         RecoveryCode::insert($codes);
     }
 }

@@ -11,44 +11,34 @@ class NewDeviceLoginNotification extends Notification
 {
     use Queueable;
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct()
+    public $activity;
+
+    public function __construct($activity)
     {
-        //
+        $this->activity = $activity;
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['mail'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-                    ->line('The introduction to the notification.')
-                    ->action('Notification Action', url('/'))
-                    ->line('Thank you for using our application!');
+            ->subject('New Login Detected')
+            ->line('A new login was detected on your account from a new device.')
+            ->line('IP Address: ' . $this->activity->ip_address)
+            ->action('Secure Your Account', url('/security-settings'))
+            ->line('If this was not you, please secure your account immediately.');
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(object $notifiable): array
     {
         return [
-            //
+            'ip_address' => $this->activity->ip_address,
+            'device' => $this->activity->device,
+            'logged_at' => $this->activity->created_at,
         ];
     }
 }

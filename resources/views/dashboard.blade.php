@@ -1,180 +1,423 @@
-<!-- resources/views/passkey-login.blade.php -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Passkey Login</title>
+    <title>Dashboard</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
+            padding: 30px 20px;
         }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .top-bar h1 { color: #e43f5a; margin: 0; }
+        .logout-btn {
+            background: rgba(255,255,255,0.1);
+            color: #f0f0f0;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .logout-btn:hover { background: rgba(255,255,255,0.2); }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
         .card {
             background: rgba(22, 36, 71, 0.95);
             backdrop-filter: blur(10px);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            width: 100%;
-            max-width: 450px;
-            text-align: center;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
         }
-        h1 { margin-bottom: 30px; color: #e43f5a; }
-        .passkey-btn {
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            padding: 16px 32px;
+        .card h2 {
+            margin-top: 0;
             font-size: 18px;
-            margin: 20px 0;
-            width: 100%;
-            border: none;
-            border-radius: 50px;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            transition: transform 0.3s;
+            color: #8ab6d6;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 12px;
         }
-        .passkey-btn:hover { transform: translateY(-2px); }
-        .passkey-btn:disabled { opacity: 0.5; transform: none; }
-        .email-input {
+        .full-width { grid-column: 1 / -1; }
+        input, select {
             width: 100%;
-            padding: 14px;
-            margin: 15px 0;
+            padding: 12px;
+            margin: 8px 0;
             border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 10px;
+            border-radius: 8px;
             background: rgba(31, 48, 94, 0.8);
             color: white;
-            font-size: 16px;
+            font-size: 14px;
         }
-        .divider {
+        label { font-size: 13px; color: #8ab6d6; display: block; margin-top: 12px; }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            background: #e43f5a;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: 0.2s;
+        }
+        button:hover { background: #ff5c78; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary { background: #3b82f6; }
+        .btn-secondary:hover { background: #60a5fa; }
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #ef4444; }
+
+        .score-row {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            margin: 25px 0;
-            color: #8ab6d6;
+            margin-bottom: 8px;
         }
-        .divider::before, .divider::after {
-            content: "";
-            flex: 1;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
+        .score-number { font-size: 28px; font-weight: bold; color: #22c55e; }
+        .score-bar-track {
+            width: 100%;
+            height: 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 6px;
         }
-        .divider span { margin: 0 15px; }
-        .password-link { color: #8ab6d6; text-decoration: none; }
-        .password-link:hover { color: #e43f5a; }
-        .back-link { display: block; margin-top: 20px; color: #6c757d; text-decoration: none; }
-        .error { color: #ff5c78; margin-bottom: 15px; }
+        .score-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+            border-radius: 20px;
+            transition: width 0.6s ease;
+        }
+        .score-breakdown { margin-top: 14px; font-size: 12px; }
+        .score-item { display: flex; justify-content: space-between; padding: 4px 0; color: #8ab6d6; }
+        .score-item.done { color: #22c55e; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        th { color: #8ab6d6; font-weight: 500; }
+        .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; }
+        .badge-trusted { background: rgba(34,197,94,0.2); color: #22c55e; }
+        .badge-new { background: rgba(228,63,90,0.2); color: #ff5c78; }
+        .row-between { display: flex; justify-content: space-between; align-items: center; }
+        .muted { color: #8ab6d6; font-size: 12px; }
+        .toggle-wrap { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; flex-shrink: 0; }
+        .switch input { display: none; }
+        .slider {
+            position: absolute; cursor: pointer; inset: 0;
+            background: rgba(255,255,255,0.2); border-radius: 24px; transition: 0.3s;
+        }
+        .slider::before {
+            content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px;
+            background: white; border-radius: 50%; transition: 0.3s;
+        }
+        input:checked + .slider { background: #22c55e; }
+        input:checked + .slider::before { transform: translateX(22px); }
+        .code-chip {
+            display: inline-block; background: rgba(31,48,94,0.8); padding: 6px 10px;
+            border-radius: 6px; margin: 4px; font-family: monospace; font-size: 13px;
+            letter-spacing: 1px;
+        }
+        .alert { padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
+        .alert-success { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .alert-error { background: rgba(220,38,38,0.15); color: #ff5c78; }
+        .empty { color: #6c7793; font-size: 13px; padding: 10px 0; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>🔑 Passkey Login</h1>
-        
-        @if(session('error'))
-            <p class="error">{{ session('error') }}</p>
-        @endif
-        
-        <input type="email" id="email" class="email-input" placeholder="Your email address" value="{{ old('email', session('email')) }}">
-        
-        <button id="passkey-login-btn" class="passkey-btn">🔐 Login with Passkey</button>
-        
-        <div class="divider"><span>OR</span></div>
-        
-        <a href="/login" class="password-link">Login with Password →</a>
-        <a href="/register" class="back-link">Don't have an account? Register</a>
+<div class="container">
+
+    <div class="top-bar">
+        <h1>Dashboard</h1>
+        <a href="{{ route('logout') }}" class="logout-btn">Logout</a>
     </div>
 
-    <script>
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        
-        function base64UrlToBuffer(base64url) {
-            let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-            while (base64.length % 4) base64 += '=';
-            return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-error">{{ session('error') }}</div>
+    @endif
+
+    <div class="grid">
+
+        <div class="card">
+            <h2>Security Score</h2>
+
+            <div class="score-row">
+                <span class="muted">Overall protection level</span>
+                <span class="score-number">{{ $securityScore }}%</span>
+            </div>
+            <div class="score-bar-track">
+                <div class="score-bar-fill" style="width: {{ $securityScore }}%;"></div>
+            </div>
+
+            <div class="score-breakdown">
+                <div class="score-item {{ $credentials->count() > 0 ? 'done' : '' }}">
+                    <span>Passkey registered</span><span>{{ $credentials->count() > 0 ? '✓ +40' : '+40' }}</span>
+                </div>
+                <div class="score-item {{ auth()->user()->webauthn_required ? 'done' : '' }}">
+                    <span>Passkey-only login enabled</span><span>{{ auth()->user()->webauthn_required ? '✓ +30' : '+30' }}</span>
+                </div>
+                <div class="score-item {{ $trustedDevices->count() > 0 ? 'done' : '' }}">
+                    <span>Trusted device added</span><span>{{ $trustedDevices->count() > 0 ? '✓ +20' : '+20' }}</span>
+                </div>
+                <div class="score-item {{ auth()->user()->email_verified ? 'done' : '' }}">
+                    <span>Email verified</span><span>{{ auth()->user()->email_verified ? '✓ +10' : '+10' }}</span>
+                </div>
+            </div>
+
+            <div class="toggle-wrap">
+                <div>
+                    <div>Require Passkey Login</div>
+                    <div class="muted">Force passkey-only login for this account</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="webauthn-toggle" {{ auth()->user()->webauthn_required ? 'checked' : '' }}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Edit Profile</h2>
+            <div id="profile-msg" class="muted"></div>
+            <form id="profile-form">
+                <label>Name</label>
+                <input type="text" id="profile-name" value="{{ auth()->user()->name }}" required>
+
+                <label>Email</label>
+                <input type="email" id="profile-email" value="{{ auth()->user()->email }}" required>
+
+                <label>New Password (leave blank to keep current)</label>
+                <input type="password" id="profile-password" placeholder="••••••••">
+
+                <label>Confirm New Password</label>
+                <input type="password" id="profile-password-confirm" placeholder="••••••••">
+
+                <button type="submit">Save Changes</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Passkeys ({{ $credentials->count() }})</h2>
+            @forelse($credentials as $credential)
+                <div class="row-between" style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                    <div>
+                        <div>{{ $credential->alias ?? 'Unnamed Passkey' }}</div>
+                        <div class="muted">Added {{ $credential->created_at->diffForHumans() }}</div>
+                    </div>
+                    <button class="btn-danger delete-passkey-btn" data-id="{{ $credential->id }}">Remove</button>
+                </div>
+            @empty
+                <div class="empty">No passkeys registered yet.</div>
+            @endforelse
+            <a href="{{ route('passkey.login') }}"><button class="btn-secondary" type="button">Manage Passkeys</button></a>
+        </div>
+
+        <div class="card">
+            <h2>Recovery Codes</h2>
+            <div class="muted">Unused codes: {{ $recoveryCodes->count() }}</div>
+            <div id="recovery-codes-list" style="margin: 12px 0;">
+                @forelse($recoveryCodes as $rc)
+                    <span class="code-chip">{{ $rc->code }}</span>
+                @empty
+                    <div class="empty">No unused recovery codes left.</div>
+                @endforelse
+            </div>
+            <button class="btn-secondary" id="regenerate-codes-btn">Generate New Codes</button>
+        </div>
+
+        <div class="card">
+            <h2>Trusted Devices ({{ $trustedDevices->count() }})</h2>
+            @forelse($trustedDevices as $device)
+                <div class="row-between" style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                    <div>
+                        <div>{{ $device->device_name }}</div>
+                        <div class="muted">{{ $device->browser }} · {{ $device->ip_address }}</div>
+                    </div>
+                    <span class="badge badge-trusted">Trusted</span>
+                </div>
+            @empty
+                <div class="empty">No trusted devices yet.</div>
+            @endforelse
+        </div>
+
+        <div class="card full-width">
+            <h2>Recent Login Activity</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Device</th>
+                        <th>Location</th>
+                        <th>IP</th>
+                        <th>Status</th>
+                        <th>When</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($activities as $activity)
+                        <tr>
+                            <td>{{ $activity->login_method }}</td>
+                            <td>{{ $activity->device_name ?? $activity->browser }}</td>
+                            <td>{{ $activity->city ? $activity->city . ', ' . $activity->country : '—' }}</td>
+                            <td>{{ $activity->ip_address }}</td>
+                            <td>
+                                @if($activity->is_trusted)
+                                    <span class="badge badge-trusted">Trusted</span>
+                                @else
+                                    <span class="badge badge-new">New Device</span>
+                                @endif
+                            </td>
+                            <td>{{ $activity->created_at->diffForHumans() }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="empty">No login activity recorded yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    function jsonHeaders() {
+        return {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        };
+    }
+
+    async function safeJson(response) {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw new Error('Server error (status ' + response.status + '). Please reload the page.');
         }
-        
-        function bufferToBase64Url(buffer) {
-            return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        return response.json();
+    }
+
+    document.getElementById('webauthn-toggle').addEventListener('change', async (e) => {
+        try {
+            const res = await fetch('{{ route('user.webauthn-required') }}', {
+                method: 'POST',
+                headers: jsonHeaders(),
+                body: JSON.stringify({ enabled: e.target.checked })
+            });
+            await safeJson(res);
+            window.location.reload();
+        } catch (error) {
+            alert(error.message);
+            e.target.checked = !e.target.checked;
         }
-        
-        const loginBtn = document.getElementById('passkey-login-btn');
-        
-        loginBtn.addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            if (!email) {
-                alert('Please enter your email address');
-                return;
-            }
-            
-            loginBtn.disabled = true;
-            loginBtn.textContent = '⌛ Verifying...';
-            
+    });
+
+    document.getElementById('regenerate-codes-btn').addEventListener('click', async (e) => {
+        e.target.disabled = true;
+        e.target.textContent = 'Generating...';
+        try {
+            const res = await fetch('{{ route('recovery.generate') }}', {
+                method: 'POST',
+                headers: jsonHeaders()
+            });
+            const data = await safeJson(res);
+            const list = document.getElementById('recovery-codes-list');
+            list.innerHTML = '';
+            data.codes.forEach(code => {
+                const chip = document.createElement('span');
+                chip.className = 'code-chip';
+                chip.textContent = code;
+                list.appendChild(chip);
+            });
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            e.target.disabled = false;
+            e.target.textContent = 'Generate New Codes';
+        }
+    });
+
+    document.querySelectorAll('.delete-passkey-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('Remove this passkey?')) return;
+            const id = btn.dataset.id;
             try {
-                const optionsResponse = await fetch('/webauthn/login/options', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
-                    },
-                    body: JSON.stringify({ email })
+                const res = await fetch('/passkey/delete/' + id, {
+                    method: 'DELETE',
+                    headers: jsonHeaders()
                 });
-                
-                if (!optionsResponse.ok) {
-                    throw new Error('No passkey registered for this email');
-                }
-                
-                const optionsData = await optionsResponse.json();
-                optionsData.challenge = base64UrlToBuffer(optionsData.challenge);
-                if (optionsData.allowCredentials) {
-                    optionsData.allowCredentials = optionsData.allowCredentials.map(cred => ({
-                        ...cred,
-                        id: base64UrlToBuffer(cred.id)
-                    }));
-                }
-                
-                const assertion = await navigator.credentials.get({ publicKey: optionsData });
-                
-                const assertionData = {
-                    id: assertion.id,
-                    rawId: bufferToBase64Url(assertion.rawId),
-                    type: assertion.type,
-                    response: {
-                        authenticatorData: bufferToBase64Url(assertion.response.authenticatorData),
-                        clientDataJSON: bufferToBase64Url(assertion.response.clientDataJSON),
-                        signature: bufferToBase64Url(assertion.response.signature),
-                        userHandle: assertion.response.userHandle ? bufferToBase64Url(assertion.response.userHandle) : null
-                    }
-                };
-                
-                const loginResponse = await fetch('/webauthn/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
-                    },
-                    body: JSON.stringify(assertionData)
-                });
-                
-                if (loginResponse.ok) {
-                    window.location.href = '/dashboard';
+                if (res.ok || res.redirected) {
+                    window.location.reload();
                 } else {
-                    alert('Login failed. Please try again.');
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = '🔐 Login with Passkey';
+                    alert('Could not remove passkey.');
                 }
             } catch (error) {
-                console.error(error);
-                alert(error.message || 'Passkey authentication failed');
-                loginBtn.disabled = false;
-                loginBtn.textContent = '🔐 Login with Passkey';
+                alert('Something went wrong, please try again.');
             }
         });
-    </script>
+    });
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('profile-msg');
+        const password = document.getElementById('profile-password').value;
+        const passwordConfirm = document.getElementById('profile-password-confirm').value;
+
+        if (password && password !== passwordConfirm) {
+            msg.textContent = 'Passwords do not match.';
+            msg.style.color = '#ff5c78';
+            return;
+        }
+
+        const payload = {
+            name: document.getElementById('profile-name').value,
+            email: document.getElementById('profile-email').value
+        };
+        if (password) payload.password = password;
+
+        try {
+            const res = await fetch('{{ route('user.update-profile') }}', {
+                method: 'POST',
+                headers: jsonHeaders(),
+                body: JSON.stringify(payload)
+            });
+            const data = await safeJson(res);
+
+            if (data.success) {
+                msg.textContent = 'Profile updated successfully.';
+                msg.style.color = '#22c55e';
+                document.getElementById('profile-password').value = '';
+                document.getElementById('profile-password-confirm').value = '';
+            } else {
+                msg.textContent = data.message || 'Could not update profile.';
+                msg.style.color = '#ff5c78';
+            }
+        } catch (error) {
+            msg.textContent = error.message;
+            msg.style.color = '#ff5c78';
+        }
+    });
+</script>
 </body>
 </html>
